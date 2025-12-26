@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>School Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --card: rgba(30, 41, 59, 0.75);
+        --border: rgba(148, 163, 184, 0.15);
+        --grad: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      nav {
+        background: var(--card);
+        backdrop-filter: blur(18px);
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logo {
+        font-size: 1.8em;
+        font-weight: bold;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .nav-tabs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .nav-tab {
+        padding: 12px 25px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .nav-tab:hover {
+        background: var(--grad);
+        color: white;
+        transform: translateY(-2px);
+      }
+
+      .nav-tab.active {
+        background: var(--grad);
+        color: white;
+        box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+      }
+
+      .page {
+        display: none;
+        animation: fadeIn 0.5s;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        backdrop-filter: blur(18px);
+        padding: 30px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stat-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: var(--grad);
+      }
+
+      .stat-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      }
+
+      .stat-icon {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+      }
+
+      .stat-value {
+        font-size: 2.8em;
+        font-weight: bold;
+        background: var(--grad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 25px;
+        margin-bottom: 30px;
+      }
+
+      .chart-container {
+        background: var(--card);
+        backdrop-filter: blur(18px);
+        padding: 30px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+      }
+
+      .chart-title {
+        color: var(--text);
+        font-size: 1.4em;
+        margin-bottom: 20px;
+        font-weight: 600;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 10px;
+      }
+
+      .table-container {
+        background: var(--card);
+        backdrop-filter: blur(18px);
+        padding: 30px;
+        border-radius: 15px;
+        border: 1px solid var(--border);
+        overflow-x: auto;
+        margin-bottom: 30px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th {
+        background: var(--grad);
+        color: white;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+      }
+
+      td {
+        padding: 15px;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+      }
+
+      tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 150px;
+        padding: 20px;
+        background: #020617;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 15px;
+        margin-bottom: 20px;
+        resize: vertical;
+        color: white;
+      }
+
+      button {
+        background: var(--grad);
+        color: white;
+        border: none;
+        padding: 15px 35px;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+      }
+
+      .quick-queries {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+
+      .quick-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 60px;
+        font-size: 1.5em;
+        color: var(--text);
+      }
+
+      .spinner {
+        border: 5px solid rgba(255, 255, 255, 0.2);
+        border-top: 5px solid white;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .alert {
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        font-weight: 500;
+      }
+
+      .alert-error {
+        background: #3f1d1d;
+        color: #fca5a5;
+        border: 1px solid #7f1d1d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <nav>
+        <div class="logo">🏫 School Analytics</div>
+        <div class="nav-tabs">
+          <button class="nav-tab active" onclick="showPage('overview')">
+            📊 Overview
+          </button>
+          <button class="nav-tab" onclick="showPage('financial')">
+            💰 Financial
+          </button>
+          <button class="nav-tab" onclick="showPage('staff')">👥 Staff</button>
+          <button class="nav-tab" onclick="showPage('query')">
+            🔍 SQL Query
+          </button>
+        </div>
+      </nav>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading School Database...</p>
+      </div>
+
+      <div id="dashboard" style="display: none">
+        <div id="overview" class="page active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">🏫</div>
+              <div class="stat-label">Total Schools</div>
+              <div class="stat-value" id="totalSchools">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">👨‍🎓</div>
+              <div class="stat-label">Total Students</div>
+              <div class="stat-value" id="totalStudents">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">💰</div>
+              <div class="stat-label">Total Revenue</div>
+              <div class="stat-value" id="totalRevenue">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📈</div>
+              <div class="stat-label">Average Fees</div>
+              <div class="stat-value" id="avgFees">-</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🗺️</div>
+            <div class="stat-label">District Coverage</div>
+            <div class="stat-value" id="districtCount">-</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">📘</div>
+            <div class="stat-label">Board Diversity</div>
+            <div class="stat-value" id="boardCount">-</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">🏫</div>
+            <div class="stat-label">Avg Students / School</div>
+            <div class="stat-value" id="avgStudentsSchool">-</div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-container">
+              <h3 class="chart-title">📍 Schools Count by District</h3>
+              <canvas id="districtChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <h3 class="chart-title">📚 Students by Board</h3>
+              <canvas id="boardChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-container">
+              <h3 class="chart-title">🏆 Top 10 by Revenue</h3>
+              <canvas id="revenueChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <h3 class="chart-title">💵 Fee Distribution</h3>
+              <canvas id="feeChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-container">
+              <h3 class="chart-title">🏫 Schools Count by Board</h3>
+              <canvas id="boardCountChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div id="financial" class="page">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">💸</div>
+              <div class="stat-label">Total Expenses</div>
+              <div class="stat-value" id="totalExpenses">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-label">Total Profit</div>
+              <div class="stat-value" id="totalProfit">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📈</div>
+              <div class="stat-label">Avg Margin</div>
+              <div class="stat-value" id="avgMargin">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-label">Profitable</div>
+              <div class="stat-value" id="profitableCount">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">⚠️</div>
+              <div class="stat-label">Loss-Making Schools</div>
+              <div class="stat-value" id="lossCount">-</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">🏆</div>
+              <div class="stat-label">Highest Margin</div>
+              <div class="stat-value" id="maxMargin">-</div>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-container">
+              <h3 class="chart-title">💰 Revenue vs Expenses</h3>
+              <canvas id="finChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <h3 class="chart-title">📊 Top Profits</h3>
+              <canvas id="profitChart"></canvas>
+            </div>
+            <div class="chart-grid">
+              <div class="chart-container">
+                <h3 class="chart-title">📊 Profit Margin Distribution</h3>
+                <canvas id="marginDistChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="table-container">
+            <h3 class="chart-title">🏆 Most Profitable Schools</h3>
+            <table id="profitTable"></table>
+          </div>
+        </div>
+
+        <div id="staff" class="page">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">👨‍🏫</div>
+              <div class="stat-label">Teachers</div>
+              <div class="stat-value" id="totalTeachers">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-label">Non-Teaching</div>
+              <div class="stat-value" id="totalNonTeaching">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-label">Avg Ratio</div>
+              <div class="stat-value" id="avgRatio">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-label">Capacity</div>
+              <div class="stat-value" id="totalCapacity">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🚨</div>
+              <div class="stat-label">Overcrowded Schools</div>
+              <div class="stat-value" id="overcrowdedCount">-</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">📉</div>
+              <div class="stat-label">Underutilized Schools</div>
+              <div class="stat-value" id="underutilizedCount">-</div>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-container">
+              <h3 class="chart-title">👥 Staff Distribution</h3>
+              <canvas id="staffChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <h3 class="chart-title">📊 Capacity Analysis</h3>
+              <canvas id="capacityChart"></canvas>
+            </div>
+            <div class="chart-grid">
+              <div class="chart-container">
+                <h3 class="chart-title">🏫 Occupancy Distribution</h3>
+                <canvas id="occupancyChart"></canvas>
+              </div>
+
+              <div class="chart-container">
+                <h3 class="chart-title">👩‍🏫 Student–Teacher Ratio Bands</h3>
+                <canvas id="ratioChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="table-container">
+            <h3 class="chart-title">📋 Top Schools by Capacity</h3>
+            <table id="capacityTable"></table>
+          </div>
+        </div>
+
+        <div id="query" class="page">
+          <div class="table-container">
+            <h2 style="margin-bottom: 20px">🔍 Custom SQL Query Tool</h2>
+            <div class="quick-queries">
+              <button class="quick-btn" onclick="loadQuery(1)">
+                All Schools
+              </button>
+              <button class="quick-btn" onclick="loadQuery(2)">
+                Top Students
+              </button>
+              <button class="quick-btn" onclick="loadQuery(3)">
+                Profitable
+              </button>
+              <button class="quick-btn" onclick="loadQuery(4)">
+                Districts
+              </button>
+            </div>
+            <textarea id="sqlQuery">
+SELECT school_name, district, student_count, average_fees FROM schools ORDER BY student_count DESC LIMIT 10;</textarea
+            >
+            <button onclick="executeQuery()">▶️ Execute</button>
+            <div id="queryResults"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let db;
+
+      async function initDatabase() {
+        try {
+          const SQL = await initSqlJs({
+            locateFile: (f) =>
+              `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}`,
+          });
+          const res = await fetch("../data/school_database.db");
+          const buf = await res.arrayBuffer();
+          db = new SQL.Database(new Uint8Array(buf));
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("dashboard").style.display = "block";
+          loadAllData();
+        } catch (e) {
+          document.getElementById(
+            "loading"
+          ).innerHTML = `<div class="alert alert-error">❌ Error: ${e.message}</div>`;
+        }
+      }
+
+      function loadAllData() {
+        const q = (sql) => db.exec(sql)[0].values[0][0];
+        document.getElementById("totalSchools").textContent = q(
+          "SELECT COUNT(*) FROM schools"
+        ).toLocaleString();
+        document.getElementById("totalStudents").textContent = q(
+          "SELECT SUM(student_count) FROM schools"
+        ).toLocaleString();
+        document.getElementById("totalRevenue").textContent =
+          "₹" +
+          (
+            q("SELECT SUM(total_fees_collection) FROM schools") / 10000000
+          ).toFixed(2) +
+          "Cr";
+        document.getElementById("avgFees").textContent =
+          "₹" +
+          (q("SELECT AVG(average_fees) FROM schools") / 1000).toFixed(0) +
+          "K";
+
+        const exp = q("SELECT SUM(total_expenses__salary_) FROM schools") || 0;
+        document.getElementById("totalExpenses").textContent =
+          "₹" + (exp / 10000000).toFixed(2) + "Cr";
+        const prof = q("SELECT SUM(difference) FROM schools") || 0;
+        document.getElementById("totalProfit").textContent =
+          "₹" + (prof / 10000000).toFixed(2) + "Cr";
+        const margin =
+          q(
+            "SELECT AVG(CAST(difference AS REAL) / total_fees_collection * 100) FROM schools WHERE total_fees_collection > 0"
+          ) || 0;
+        document.getElementById("avgMargin").textContent =
+          margin.toFixed(1) + "%";
+        document.getElementById("profitableCount").textContent = q(
+          "SELECT COUNT(*) FROM schools WHERE difference > 0"
+        );
+        // --- Financial Risk & Efficiency KPIs ---
+        document.getElementById("lossCount").textContent = q(
+          "SELECT COUNT(*) FROM schools WHERE difference < 0"
+        );
+
+        document.getElementById("maxMargin").textContent =
+          q(
+            "SELECT MAX((CAST(difference AS REAL) / total_fees_collection) * 100) FROM schools WHERE total_fees_collection > 0"
+          ).toFixed(1) + "%";
+        document.getElementById("totalTeachers").textContent = q(
+          "SELECT SUM(no_of_teaching_staff) FROM schools"
+        );
+        document.getElementById("totalNonTeaching").textContent = q(
+          "SELECT SUM(no_of_non_teaching_staff) FROM schools"
+        );
+        document.getElementById("avgRatio").textContent = q(
+          "SELECT AVG(student_teacher_ratio) FROM schools WHERE student_teacher_ratio > 0"
+        ).toFixed(1);
+        document.getElementById("totalCapacity").textContent = q(
+          "SELECT SUM(school_student_capacity) FROM schools"
+        ).toLocaleString();
+        // --- NEW OVERVIEW KPIs ---
+        document.getElementById("districtCount").textContent = q(
+          "SELECT COUNT(DISTINCT district) FROM schools"
+        );
+
+        document.getElementById("boardCount").textContent = q(
+          "SELECT COUNT(DISTINCT school_board) FROM schools WHERE school_board IS NOT NULL"
+        );
+        // --- Staff Utilization KPIs ---
+        document.getElementById("overcrowdedCount").textContent = q(
+          "SELECT COUNT(*) FROM schools WHERE student_count > school_student_capacity AND school_student_capacity > 0"
+        );
+
+        document.getElementById("underutilizedCount").textContent = q(
+          "SELECT COUNT(*) FROM schools WHERE school_student_capacity > 0 AND (student_count * 1.0 / school_student_capacity) < 0.7"
+        );
+
+        document.getElementById("avgStudentsSchool").textContent = Math.round(
+          q("SELECT SUM(student_count) FROM schools") /
+            q("SELECT COUNT(*) FROM schools")
+        );
+
+        createCharts();
+        loadTables();
+      }
+      function createCharts() {
+        const d1 = db.exec(
+          "SELECT district, COUNT(*) FROM schools GROUP BY district ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("districtChart"), {
+          type: "bar",
+          data: {
+            labels: d1.map((r) => r[0]),
+            datasets: [
+              {
+                label: "Schools",
+                data: d1.map((r) => r[1]),
+                backgroundColor: "rgba(102, 126, 234, 0.8)",
+                borderRadius: 8,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+          },
+        });
+
+        const d2 = db.exec(
+          "SELECT school_board, SUM(student_count) FROM schools WHERE school_board IS NOT NULL GROUP BY school_board"
+        )[0].values;
+        new Chart(document.getElementById("boardChart"), {
+          type: "doughnut",
+          data: {
+            labels: d2.map((r) => r[0]),
+            datasets: [
+              {
+                data: d2.map((r) => r[1]),
+                backgroundColor: [
+                  "#667eea",
+                  "#764ba2",
+                  "#f093fb",
+                  "#4facfe",
+                  "#43e97b",
+                ],
+              },
+            ],
+          },
+        });
+
+        const d3 = db.exec(
+          "SELECT school_name, total_fees_collection FROM schools ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("revenueChart"), {
+          type: "bar",
+          data: {
+            labels: d3.map((r) => r[0].substring(0, 25)),
+            datasets: [
+              {
+                label: "Revenue",
+                data: d3.map((r) => r[1]),
+                backgroundColor: "rgba(118, 75, 162, 0.8)",
+                borderRadius: 8,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            plugins: { legend: { display: false } },
+          },
+        });
+
+        const d4 = db.exec(
+          "SELECT CASE WHEN average_fees < 50000 THEN 'Budget' WHEN average_fees < 100000 THEN 'Mid' WHEN average_fees < 200000 THEN 'Premium' ELSE 'Luxury' END, COUNT(*) FROM schools GROUP BY 1"
+        )[0].values;
+        new Chart(document.getElementById("feeChart"), {
+          type: "pie",
+          data: {
+            labels: d4.map((r) => r[0]),
+            datasets: [
+              {
+                data: d4.map((r) => r[1]),
+                backgroundColor: ["#4facfe", "#00f2fe", "#43e97b", "#fa709a"],
+              },
+            ],
+          },
+        });
+
+        const d5 = db.exec(
+          "SELECT school_name, total_fees_collection, total_expenses__salary_ FROM schools ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("finChart"), {
+          type: "bar",
+          data: {
+            labels: d5.map((r) => r[0].substring(0, 20)),
+            datasets: [
+              {
+                label: "Revenue",
+                data: d5.map((r) => r[1]),
+                backgroundColor: "#667eea",
+              },
+              {
+                label: "Expenses",
+                data: d5.map((r) => r[2]),
+                backgroundColor: "#f44336",
+              },
+            ],
+          },
+          options: { indexAxis: "y", responsive: true },
+        });
+
+        const d6 = db.exec(
+          "SELECT school_name, difference FROM schools WHERE difference > 0 ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("profitChart"), {
+          type: "bar",
+          data: {
+            labels: d6.map((r) => r[0].substring(0, 20)),
+            datasets: [
+              {
+                label: "Profit",
+                data: d6.map((r) => r[1]),
+                backgroundColor: "#4caf50",
+                borderRadius: 8,
+              },
+            ],
+          },
+        });
+
+        const d7 = db.exec(
+          "SELECT school_name, no_of_teaching_staff, no_of_non_teaching_staff FROM schools ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("staffChart"), {
+          type: "bar",
+          data: {
+            labels: d7.map((r) => r[0].substring(0, 20)),
+            datasets: [
+              {
+                label: "Teaching",
+                data: d7.map((r) => r[1]),
+                backgroundColor: "#667eea",
+              },
+              {
+                label: "Non-Teaching",
+                data: d7.map((r) => r[2]),
+                backgroundColor: "#764ba2",
+              },
+            ],
+          },
+        });
+
+        const d8 = db.exec(
+          "SELECT school_name, school_student_capacity, student_count FROM schools WHERE school_student_capacity > 0 ORDER BY 2 DESC LIMIT 10"
+        )[0].values;
+        new Chart(document.getElementById("capacityChart"), {
+          type: "bar",
+          data: {
+            labels: d8.map((r) => r[0].substring(0, 20)),
+            datasets: [
+              {
+                label: "Capacity",
+                data: d8.map((r) => r[1]),
+                backgroundColor: "#667eea",
+              },
+              {
+                label: "Enrolled",
+                data: d8.map((r) => r[2]),
+                backgroundColor: "#43e97b",
+              },
+            ],
+          },
+        });
+
+        const d9 = db.exec(
+          "SELECT school_board, COUNT(*) FROM schools WHERE school_board IS NOT NULL GROUP BY school_board"
+        )[0].values;
+
+        new Chart(document.getElementById("boardCountChart"), {
+          type: "bar",
+          data: {
+            labels: d9.map((r) => r[0]),
+            datasets: [
+              {
+                label: "No. of Schools",
+                data: d9.map((r) => r[1]),
+                backgroundColor: "#a855f7",
+                borderRadius: 8,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+          },
+        });
+        // --- Occupancy Distribution (SAFE & STABLE) ---
+        let occRes;
+        try {
+          occRes = db.exec(`
+    SELECT
+      CASE
+        WHEN (student_count * 1.0 / school_student_capacity) < 0.7 THEN 'Underutilized'
+        WHEN (student_count * 1.0 / school_student_capacity) <= 1 THEN 'Optimal'
+        ELSE 'Overcrowded'
+      END AS occ_status,
+      COUNT(*)
+    FROM schools
+    WHERE school_student_capacity IS NOT NULL
+      AND school_student_capacity > 0
+      AND student_count IS NOT NULL
+    GROUP BY occ_status
+  `);
+        } catch (e) {
+          console.error("Occupancy query failed", e);
+          occRes = [];
+        }
+
+        if (occRes.length > 0 && occRes[0].values.length > 0) {
+          if (window.occupancyChartInstance) {
+            window.occupancyChartInstance.destroy();
+          }
+
+          window.occupancyChartInstance = new Chart(
+            document.getElementById("occupancyChart"),
+            {
+              type: "pie",
+              data: {
+                labels: occRes[0].values.map((r) => r[0]),
+                datasets: [
+                  {
+                    data: occRes[0].values.map((r) => r[1]),
+                    backgroundColor: ["#60a5fa", "#34d399", "#f87171"],
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                plugins: { legend: { position: "bottom" } },
+              },
+            }
+          );
+        }
+
+        // --- Student–Teacher Ratio Bands (SAFE & STABLE) ---
+        let ratioRes;
+        try {
+          ratioRes = db.exec(`
+    SELECT
+      CASE
+        WHEN student_teacher_ratio < 20 THEN '<20'
+        WHEN student_teacher_ratio < 30 THEN '20-30'
+        WHEN student_teacher_ratio < 40 THEN '30-40'
+        ELSE '>40'
+      END AS ratio_band,
+      COUNT(*)
+    FROM schools
+    WHERE student_teacher_ratio IS NOT NULL
+      AND student_teacher_ratio > 0
+    GROUP BY ratio_band
+  `);
+        } catch (e) {
+          console.error("Ratio query failed", e);
+          ratioRes = [];
+        }
+
+        if (ratioRes.length > 0 && ratioRes[0].values.length > 0) {
+          if (window.ratioChartInstance) {
+            window.ratioChartInstance.destroy();
+          }
+
+          window.ratioChartInstance = new Chart(
+            document.getElementById("ratioChart"),
+            {
+              type: "bar",
+              data: {
+                labels: ratioRes[0].values.map((r) => r[0]),
+                datasets: [
+                  {
+                    label: "Schools",
+                    data: ratioRes[0].values.map((r) => r[1]),
+                    backgroundColor: "#a855f7",
+                    borderRadius: 8,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+              },
+            }
+          );
+        }
+        // --- Profit Margin Distribution (SAFE VERSION) ---
+        let marginResult;
+        try {
+          marginResult = db.exec(`
+    SELECT
+      CASE
+        WHEN (difference * 100.0 / total_fees_collection) < 10 THEN '<10%'
+        WHEN (difference * 100.0 / total_fees_collection) < 20 THEN '10-20%'
+        WHEN (difference * 100.0 / total_fees_collection) < 30 THEN '20-30%'
+        ELSE '>30%'
+      END AS margin_band,
+      COUNT(*)
+    FROM schools
+    WHERE total_fees_collection > 0 AND difference > 0
+    GROUP BY margin_band
+  `);
+        } catch (e) {
+          console.error("Margin query failed", e);
+          marginResult = [];
+        }
+
+        if (marginResult.length > 0) {
+          const d10 = marginResult[0].values;
+
+          // destroy existing chart if present (prevents silent failure)
+          if (window.marginChartInstance) {
+            window.marginChartInstance.destroy();
+          }
+
+          window.marginChartInstance = new Chart(
+            document.getElementById("marginDistChart"),
+            {
+              type: "doughnut",
+              data: {
+                labels: d10.map((r) => r[0]),
+                datasets: [
+                  {
+                    data: d10.map((r) => r[1]),
+                    backgroundColor: [
+                      "#f87171",
+                      "#fbbf24",
+                      "#34d399",
+                      "#60a5fa",
+                    ],
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: { position: "bottom" },
+                },
+              },
+            }
+          );
+        }
+      }
+
+      function loadTables() {
+        const p = db.exec(
+          "SELECT school_name, district, total_fees_collection, total_expenses__salary_, difference FROM schools WHERE difference > 0 ORDER BY 5 DESC LIMIT 20"
+        )[0].values;
+        let html =
+          "<thead><tr><th>School</th><th>District</th><th>Revenue</th><th>Expenses</th><th>Profit</th></tr></thead><tbody>";
+        p.forEach((r) => {
+          html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>₹${(
+            r[2] / 100000
+          ).toFixed(2)}L</td><td>₹${(r[3] / 100000).toFixed(
+            2
+          )}L</td><td style="color:green;font-weight:bold;">₹${(
+            r[4] / 100000
+          ).toFixed(2)}L</td></tr>`;
+        });
+        document.getElementById("profitTable").innerHTML = html + "</tbody>";
+
+        const c = db.exec(
+          "SELECT school_name, district, school_student_capacity, student_count, ROUND((CAST(student_count AS REAL)/school_student_capacity*100),2) FROM schools WHERE school_student_capacity > 0 ORDER BY 5 DESC LIMIT 20"
+        )[0].values;
+        html =
+          "<thead><tr><th>School</th><th>District</th><th>Capacity</th><th>Enrolled</th><th>Occupancy</th></tr></thead><tbody>";
+        c.forEach((r) => {
+          html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><strong>${r[4]}%</strong></td></tr>`;
+        });
+        document.getElementById("capacityTable").innerHTML = html + "</tbody>";
+      }
+
+      function showPage(page) {
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById(page).classList.add("active");
+        event.target.classList.add("active");
+      }
+
+      function executeQuery() {
+        const sql = document.getElementById("sqlQuery").value;
+        const div = document.getElementById("queryResults");
+        try {
+          const r = db.exec(sql);
+          if (r.length === 0) {
+            div.innerHTML =
+              '<div class="alert" style="background:#d4edda;color:#155724;margin-top:20px;">✅ Query executed (no results)</div>';
+            return;
+          }
+          let html = '<table style="margin-top:20px;"><thead><tr>';
+          r[0].columns.forEach((c) => {
+            html += `<th>${c}</th>`;
+          });
+          html += "</tr></thead><tbody>";
+          r[0].values.forEach((row) => {
+            html += "<tr>";
+            row.forEach((cell) => {
+              html += `<td>${cell}</td>`;
+            });
+            html += "</tr>";
+          });
+          div.innerHTML = html + "</tbody></table>";
+        } catch (e) {
+          div.innerHTML = `<div class="alert alert-error" style="margin-top:20px;">❌ ${e.message}</div>`;
+        }
+      }
+
+      function loadQuery(n) {
+        const qs = {
+          1: "SELECT school_name, district, student_count, average_fees FROM schools LIMIT 20;",
+          2: "SELECT school_name, district, student_count FROM schools ORDER BY student_count DESC LIMIT 10;",
+          3: "SELECT school_name, district, total_fees_collection, difference as profit FROM schools WHERE difference > 0 ORDER BY profit DESC LIMIT 10;",
+          4: "SELECT district, COUNT(*) as schools, SUM(student_count) as students, ROUND(AVG(average_fees), 2) as avg_fees FROM schools GROUP BY district ORDER BY schools DESC;",
+        };
+        document.getElementById("sqlQuery").value = qs[n];
+      }
+
+      window.onload = initDatabase;
+    </script>
+  </body>
+</html>
